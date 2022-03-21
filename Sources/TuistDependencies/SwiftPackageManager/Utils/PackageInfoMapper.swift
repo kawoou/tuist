@@ -363,7 +363,16 @@ public final class PackageInfoMapper: PackageInfoMapping {
                 disableBundleAccessors: false,
                 disableSynthesizedResourceAccessors: false
             ),
-            settings: packageInfo.projectSettings(swiftToolsVersion: swiftToolsVersion),
+            settings: packageInfo.projectSettings(
+                swiftToolsVersion: swiftToolsVersion,
+                configurations: baseSettings.configurations.map { entry in
+                    ProjectDescription.Configuration.from(
+                        buildConfiguration: entry.key,
+                        configuration: entry.value,
+                        packageFolder: path
+                    )
+                }
+            ),
             targets: targets,
             resourceSynthesizers: []
         )
@@ -1010,7 +1019,8 @@ extension ProjectDescription.DeploymentDevice {
 
 extension PackageInfo {
     fileprivate func projectSettings(
-        swiftToolsVersion: TSCUtility.Version?
+        swiftToolsVersion: TSCUtility.Version?,
+        configurations: [ProjectDescription.Configuration]
     ) -> ProjectDescription.Settings? {
         var settingsDictionary: ProjectDescription.SettingsDictionary = [:]
 
@@ -1026,7 +1036,13 @@ extension PackageInfo {
             settingsDictionary["SWIFT_VERSION"] = .string(swiftLanguageVersion)
         }
 
-        return settingsDictionary.isEmpty ? nil : .settings(base: settingsDictionary)
+        guard !settingsDictionary.isEmpty || !configurations.isEmpty else { return nil }
+
+        if settingsDictionary.isEmpty {
+            return .settings(configurations: configurations)
+        } else {
+            return .settings(base: settingsDictionary, configurations: configurations)
+        }
     }
 
     private func swiftVersion(for configuredSwiftVersion: TSCUtility.Version?) -> String? {
